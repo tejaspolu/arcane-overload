@@ -1,431 +1,747 @@
 import { Bullet } from '../gameobjects/bullet.js';
-import { Enemy } from '../gameobjects/enemy.js';
 
-export class Start extends Phaser.Scene {
-
+export class GameScene extends Phaser.Scene {
     constructor() {
-        super('Start');
+        super('Game');
     }
 
-    preload() {
-        this.load.image('background', 'assets/bg.png');
-        this.load.image('character', 'assets/char.png');
-        
-        this.load.image('projectile', 'assets/projectile.png');
-        this.load.json('spawns', 'data/spawns.json');
- 
-        // enemy sprites
-        this.load.image('barnacle', 'assets/barnacle.png');
-        this.load.image('bee', 'assets/bee.png');
-        this.load.image('block', 'assets/block.png');
-        this.load.image('blue_fish', 'assets/blue_fish.png');
-        this.load.image('blue_worm', 'assets/blue_worm.png');
-        this.load.image('mean_block', 'assets/enemy.png');
-        this.load.image('fly', 'assets/fly.png');
-        this.load.image('frog', 'assets/frog.png');
-        this.load.image('ladybug', 'assets/ladybug.png');
-        this.load.image('mouse', 'assets/mouse.png');
-        this.load.image('saw', 'assets/saw.png');
-        this.load.image('slime_block', 'assets/slime_block.png');
-        this.load.image('slime_fire', 'assets/slime_fire.png');
-        this.load.image('snail', 'assets/spike_slime.png');
-        this.load.image('yellow_fish', 'assets/yellow_fish.png');
-        this.load.image('yellow_worm', 'assets/yellow_worm.png');
-        this.load.image("landscape", "assets/tilesheet.png");
-        this.load.tilemapTiledJSON('tilemap', 'assets/tilemap.tmj');
-
-        this.load.image("dot", "assets/dot.png");
-
-        this.load.image("coin", "assets/coin.png");
-
-        // from: https://opengameart.org/content/dungeon-crawl-32x32-tiles (CC-0 licensed)
-        this.load.image("heal", "assets/hp.png");
-        this.load.image("speed", "assets/speed.png");
-        this.load.image("shield", "assets/shield.png");
-        this.load.image("attackspeed", "assets/attack_speed.png");
-
-        // particles
-        this.load.image("fire1", "assets/fire1.png");
-        this.load.image("fire2", "assets/fire2.png");
-        this.load.image("star1", "assets/star1.png");
-        this.load.image("star2", "assets/star2.png");
-        this.load.image("star3", "assets/star3.png");
-        this.load.image("star4", "assets/star4.png");
-
-
-        // sound effects
-        this.load.audio("congratulations_female", "assets/congratulationsf.ogg");
-        this.load.audio("level_up_female", "assets/level_upf.ogg");
-        this.load.audio("target_destroyed_female", "assets/target_destroyedf.ogg");
-        this.load.audio("congratulations_male", "assets/congratulationsm.ogg");
-        this.load.audio("level_up_male", "assets/level_upm.ogg");
-        this.load.audio("target_destroyed_male", "assets/target_destroyedm.ogg");
-        this.load.audio("congratulations_synth", "assets/congratulationss.ogg");
-        this.load.audio("level_up_synth", "assets/level_ups.ogg");
-        this.load.audio("hurt1", "assets/hurt1.ogg");
-        this.load.audio("hurt2", "assets/hurt2.ogg");
-        this.load.audio("hurt3", "assets/hurt3.ogg");
-        this.load.audio("upgrade1", "assets/upgrade1.ogg");
-        this.load.audio("upgrade2", "assets/upgrade2.ogg");
-        this.load.audio("upgrade3", "assets/upgrade3.ogg");
-        this.load.audio("upgrade4", "assets/upgrade4.ogg");
-        this.load.audio("explosion1", "assets/explosion1.ogg");
-        this.load.audio("explosion2", "assets/explosion2.ogg");
-        this.load.audio("explosion3", "assets/explosion3.ogg");
-
-        this.load.audio("bg", "assets/bg.ogg");
-
-
-    }
-
-    makeTilemap(x,y)
-    {
-        var background = undefined;
-        if (this.tilemaps[x+"_" + y]) return;
-        this.tilemaps[x+"_" + y] = true;
-        x = x*30*32;
-        y = y*30*32;
-        
-        background = this.add.tilemap('tilemap', 32, 32, 30, 30);
-       
-        var tileset = background.addTilesetImage("landscape", "landscape", 32, 32, 0, 2);
-        var bg = background.createLayer("background", tileset, x, y);
-        bg.setDepth(0);
-        var layer = background.createLayer("obstacles", tileset, x, y);
-        layer.setCollisionBetween(1,1767);
-        layer.setDepth(2);
-        this.physics.add.collider(layer, this.player);
-        var paths = background.createLayer("paths", tileset, x, y);
-        paths.setDepth(1);
-        this.paths.add(paths);
-        paths.setCollisionBetween(1,1767);
-        let deco = background.createLayer("decoration", tileset, x, y);
-        deco.setDepth(3);
-
-        let objects = background.getObjectLayer("Collectibles");
-        if (objects)
-        {
-            for (var obj of objects.objects)
-            {
-                if (obj.properties)
-                {
-                    if (obj.properties[0].name == "value" && obj.properties[0].value)
-                    {
-                        let coin = this.physics.add.staticSprite(x+obj.x +16, y+obj.y-16, "coin");
-                        coin.value = Math.min(obj.properties[0].value, 100);
-                        coin.setDepth(10);
-                        coin.setScale(1 + coin.value/100);
-                        if (coin.value > 25)
-                            coin.tint = 0xffbbbb;
-                        if (coin.value > 50)
-                            coin.tint = 0xff5555;
-                        if (coin.value > 90)
-                            coin.tint = 0xff0000;
-                        this.coins.add(coin);
-                    }
-                    if (obj.properties[0].name == "powerup")
-                    {
-                        let powerup = this.physics.add.staticSprite(x + obj.x + 16, y+obj.y-16, obj.properties[0].value);
-                        powerup.powerup_type = obj.properties[0].value;
-                        powerup.setDepth(10);
-                        powerup.setScale(2);
-                        this.powerups.add(powerup);
-                    }
-                }
-            }
-        }
+    init(data) {
+        this.arenaType = data?.arena || 'tutorial';
     }
 
     create() {
-        
-        
-        this.player = this.add.sprite(720, 320, 'character');
-        this.player.setScale(0.4, 0.4);
-        this.player.setDepth(6);
-        this.physics.add.existing(this.player);
-        this.enemy_group = this.add.group("enemies");
-        this.coins = this.add.group("coins");
-        this.powerups = this.add.group("powerups");
-        this.wave = 1;
-        this.wave_label = this.add.text(640, 100, "", { fontSize: '64px', fill: '#FF0000', align: "center" }).setScrollFactor(0);
-        this.wave_label.setOrigin(0.5, 0.5);
-        this.wave_label.setDepth(10);
-        this.description_label = this.add.text(640, 180, "", { fontSize: '32px', fill: '#FF0000', align: "center" }).setScrollFactor(0);
-        this.description_label.setOrigin(0.5, 0.5);
-        this.description_label.setDepth(10);
-        this.sound.play("bg", {loop: true});
-        this.tilemaps = {};
-        this.paths = this.add.group("paths");
+        // layout: simple single-screen tutorial arena using the tilemap
+        this.map = this.make.tilemap({ key: 'tilemap' });
+        const tileset = this.map.addTilesetImage('landscape', 'landscape');
+        this.map.createLayer('background', tileset, 0, 0).setDepth(0);
+        const obstacles = this.map.createLayer('obstacles', tileset, 0, 0);
+        obstacles.setCollisionByExclusion([-1]);
+        obstacles.setDepth(1);
+        this.obstaclesLayer = obstacles;
+        this.map.createLayer('paths', tileset, 0, 0).setDepth(0.5);
+        this.map.createLayer('decoration', tileset, 0, 0).setDepth(2);
 
-        for (let i = 0; i< 3; i++)
-        {
-            for (let j = 0; j < 3; ++j)
-            {
-                this.makeTilemap(i, j);
+        this.tileWidth = this.map.tileWidth;
+        this.tileHeight = this.map.tileHeight;
+        this.buildNavGrid();
+
+        this.waterColliders = this.physics.add.staticGroup();
+        for (let y = 0; y < this.map.height; y++) {
+            for (let x = 0; x < this.map.width; x++) {
+                const tile = this.obstaclesLayer.getTileAt(x, y);
+                if (tile && tile.collides) {
+                    const wx = this.map.tileToWorldX(x) + this.tileWidth / 2;
+                    const wy = this.map.tileToWorldY(y) + this.tileHeight / 2;
+                    const blocker = this.physics.add.staticImage(wx, wy);
+                    blocker.setVisible(false);
+                    blocker.body.setSize(this.tileWidth * 0.7, this.tileHeight * 0.7, true);
+                    this.waterColliders.add(blocker);
+                }
             }
         }
-        
-        this.newWave();
-        
-        this.player.score = 0;
+
+        // player setup
+        const centerX = this.map.widthInPixels / 2;
+        const centerY = this.map.heightInPixels / 2;
+        this.player = this.physics.add.sprite(centerX, centerY, 'character');
+        this.player.setScale(0.7);
+        this.player.setDepth(3);
+        this.player.setCollideWorldBounds(true);
+
+        // core player stats for upgrades
+        this.player.maxHp = 100;
         this.player.hp = 100;
+        this.player.moveSpeed = 220;
+        this.player.baseMoveSpeed = 220;
+        this.player.projectileSpeed = 600;
+        this.player.fireCooldown = 280;
+        this.player.damage = 10;
+        this.player.dashSpeed = 700;
+        this.player.dashDuration = 220;
+        this.player.dashCooldown = 1200;
+        this.player.lastDashTime = -9999;
+        this.player.isDashing = false;
+        this.player.invulnerableUntil = 0;
+
+        // input
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.W,
+            down: Phaser.Input.Keyboard.KeyCodes.S,
+            left: Phaser.Input.Keyboard.KeyCodes.A,
+            right: Phaser.Input.Keyboard.KeyCodes.D
+        });
+        this.dashKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.pointer = this.input.activePointer;
+
+        // groups
+        this.enemies = this.physics.add.group();
+        this.playerBullets = this.physics.add.group();
+        this.xpOrbs = this.physics.add.group();
+
+        // collisions
+        this.physics.add.collider(this.player, this.waterColliders);
+        this.physics.add.collider(this.enemies, this.waterColliders);
+
+        this.physics.add.overlap(this.playerBullets, this.enemies, (bullet, enemy) => {
+            this.handleEnemyHit(bullet, enemy);
+        });
+
+        this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+            this.handlePlayerHit(8);
+        });
+
+        this.physics.add.overlap(this.player, this.xpOrbs, (player, orb) => {
+            this.collectXpOrb(orb);
+        });
+
+        // camera
+        this.cameras.main.startFollow(this.player);
+        this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+
+        // background music
+        this.sound.stopAll();
+        this.sound.play('bg', { loop: true, volume: 0.5 });
+
+        // xp and leveling
         this.player.level = 1;
-        this.player.speed = 100;
-        this.player.bonus_speed = 0;
-        this.player.bonus_speed_stacks = 0;
-        this.player.bullet_speed = 350;
-        this.player.last_attack = 0;
-        this.player.shield = 0;
-        this.player.shield_stacks = 0;
-        this.player.attack_speed = 3000;
-        this.player.attack_speed_bonus = 1;
-        this.player.attack_angle = 0;
-        this.score_label = this.add.text(0, 0, 'Points: ' + this.player.score, { fontSize: '32px', fill: '#000000' }).setScrollFactor(0);
-        this.score_label.setDepth(10);
-        
-        this.last_time = 0;
-        this.player_bullets = this.add.group("player_bullets");
-        this.enemy_bullets = this.add.group("enemy_bullets");
+        this.player.xp = 0;
+        this.player.totalXp = 0;
+        this.player.nextLevelXp = this.getXpForLevel(2);
 
-        this.up = this.input.keyboard.addKey("W", false, true);
-        this.down = this.input.keyboard.addKey("S", false, true);
-        this.left = this.input.keyboard.addKey("A", false, true);
-        this.right = this.input.keyboard.addKey("D", false, true);
+        // timer and stats
+        this.elapsed = 0;
+        this.enemiesDefeated = 0;
+        this.tutorialDuration = 90 * 1000;
+        this.tutorialComplete = false;
 
-        this.cameras.main.startFollow(this.player, true);
+        // shooting
+        this.lastShotTime = 0;
 
-        this.cameras.main.setDeadzone(400, 200);
-        
+        // upgrade state
+        this.isChoosingUpgrade = false;
+        this.upgradePanel = null;
+
+        // ui
+        this.buildUi();
+
+        // onboarding text
+        this.buildTutorialHints();
+
+        // gentle spawning for tutorial arena
+        this.spawnTimer = this.time.addEvent({
+            delay: 1200,
+            loop: true,
+            callback: () => this.spawnTutorialEnemy()
+        });
     }
 
-    newWave()
-    {
-        const spawns = this.cache.json.get("spawns");
-        let idx = Math.floor(Math.random()*spawns.length);
-        const spawn = spawns[idx];
-        this.wave_label.text = "BEWARE the " + spawn.name;
-        this.description_label.text = spawn.description;
-        this.time.delayedCall(5000, () => { this.wave_label.text = "";
-                                            this.description_label.text = ""; });
-        const n = spawn.count*(Math.log(this.wave)*this.wave+1)
-        for (let i = 0; i < n; ++i)
-        {
-            const dist = 1000 + i*200 + Math.random()*500; 
-            const angle = i * 120/spawn.count  + Math.random()*40 - 80;
-            idx = Math.floor(Math.random()*spawn.target.length);
-            const target = spawn.target[idx];
-            const e = new Enemy(this, dist, 0, spawn.sprite, angle, spawn.speed, spawn.attack_rate, spawn.bullet_speed, spawn.damage, this.getTarget(target), this.time.now);
-            e.setScale(0.2);
-            Phaser.Math.RotateAround(e, this.player.x, this.player.y, Phaser.Math.DegToRad(angle));
-            this.enemy_group.add(e);
-            this.physics.add.existing(e);
-            
-        }
+    buildUi() {
+        const { width, height } = this.scale;
 
-        this.time.delayedCall(30000, () => {    this.newWave();
-                                             this.wave++;});
+        this.uiGraphics = this.add.graphics().setScrollFactor(0);
+        this.uiGraphics.setDepth(10);
+
+        this.healthText = this.add.text(20, 20, '', {
+            fontSize: '20px',
+            color: '#ffffff'
+        }).setScrollFactor(0).setDepth(11);
+
+        this.levelText = this.add.text(width / 2, height - 46, '', {
+            fontSize: '20px',
+            color: '#ffffff'
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(11);
+
+        this.timerText = this.add.text(width - 20, 20, '', {
+            fontSize: '20px',
+            color: '#ffffff'
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(11);
+
+        this.updateUi(this.time.now || 0);
     }
 
-    getTarget(name)
-    {
-        if (name == "player")
-        {
-            return this.player;
-        }
-        if (name == "random")
-        {
-            return {x: this.player.x + Math.random()*this.game.canvas.width, y: this.player.y + Math.random()*this.game.canvas.height - this.game.canvas.height/2};
-        }
-        if (name == "center")
-        {
-            return {x: this.player.x + this.game.canvas.width/4, y: this.player.y};
-        }
-    }
+    buildTutorialHints() {
+        const { width } = this.scale;
 
-    update(time) {
-        let dt = (time - this.last_time)/1000;
-        this.last_time = time;
-        let attack = false;
-        let move = new Phaser.Math.Vector2(0,0);
-        if (this.up.isDown) move.y -= 1; 
-        if (this.down.isDown) move.y += 1;
-        if (this.left.isDown) move.x -= 1;
-        if (this.right.isDown) move.x += 1;
-        let factor = 1;
-        let speed = this.player.speed + this.player.bonus_speed;
-        if (move.length() > 0)
-        {
-            move.normalize();
-            this.player.body.velocity.x = move.x*speed*factor;
-            this.player.body.velocity.y = move.y*speed*factor;
-        }
-        else
-        {
-            this.player.body.velocity.x = 0;
-            this.player.body.velocity.y = 0;
-        }
+        const lines = [
+            'wasd / arrows to move',
+            'aim with the mouse, left click to cast',
+            'space to dash through danger (short cooldown)',
+            'collect glowing orbs to gain experience and level up'
+        ];
 
-        let cx = Math.floor(this.cameras.main.scrollX/960);
-        let cy = Math.floor(this.cameras.main.scrollY/960);
-        for (let i = 0; i < 4; ++i)
-            for (let j=0; j < 3; ++j)
-                this.makeTilemap(cx+i-1, cy+j-1);
+        this.hintsText = this.add.text(width / 2, 80, lines.join('\n'), {
+            fontSize: '18px',
+            color: '#ffffee',
+            align: 'center'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(12);
 
-        if (this.player.last_attack + this.player.attack_speed*this.player.attack_speed_bonus < time)
-        {
-            this.player.last_attack = time;
-
-            for (let i = 0; i < 4; i++)
-            {
-                let bullet = new Bullet(this, this.player.x, this.player.y, this.player.attack_angle + i*90, this.player.bullet_speed);
-                this.player_bullets.add(bullet);
+        this.time.delayedCall(12000, () => {
+            if (this.hintsText) {
+                this.tweens.add({
+                    targets: this.hintsText,
+                    alpha: 0,
+                    duration: 1000,
+                    onComplete: () => this.hintsText.destroy()
+                });
             }
-            this.player.attack_angle += 45;
-        }       
-
-        
-        this.physics.world.overlap(this.player_bullets, this.enemy_group, (b,e) => { this.onEnemyDestroy(e); b.destroy(true); this.checkLevelUp(); });
-        this.physics.world.overlap(this.player, this.enemy_bullets, (p,b) => { this.playerTakeDamage(b); });
-        this.physics.world.overlap(this.player, this.enemy_group, (p,e) => { e.damage = 10; this.playerTakeDamage(e); });
-        this.physics.world.overlap(this.player, this.coins, (p,c) => { 
-               c.body.enable = false;
-               this.tweens.add({
-                  targets: c, 
-                  scale: 0.2, 
-                  duration: 300, 
-                  onComplete: () => {
-                        c.destroy(true);}
-                }); 
-                p.score += c.value; 
-                this.checkLevelUp();});
-        this.physics.world.overlap(this.player, this.powerups, (p,pu) => { 
-                    pu.body.enable = false;
-                    this.tweens.add({
-                        targets: pu, 
-                        scale: 0.2, 
-                        duration: 300, 
-                        onComplete: () => {
-                                pu.destroy(true);}
-                    });
-                    this.applyPowerup(pu.powerup_type);});
-        let percentage = Math.round(100*(this.player.score - this.threshold(this.player.level-1))/(this.threshold(this.player.level) - this.threshold(this.player.level-1)));
-        let text = "XP: " + this.player.score + " Level: " + this.player.level + " (" + percentage + "%) HP: " + this.player.hp;
-        if (this.player.shield)
-        {
-            text += " (Shield: " + this.player.shield + ")";
-        }
-        this.score_label.text = text;
+        });
     }
 
-    applyPowerup(type)
-    {
-        if (type == "heal")
-        {
-            this.player.hp = Math.min(this.player.hp + 10, 100);
-        }
-        if (type == "speed")
-        {
-            this.player.bonus_speed = 100;
-            // extend duration
-            this.player.bonus_speed_stacks++;
-            this.time.delayedCall(10000, () => { 
-                            this.player.bonus_speed_stacks--;
-                            if (this.player.bonus_speed_stacks == 0)
-                                 this.player.bonus_speed = 0;
-                            });
-        }
-        if (type == "shield")
-        {
-            // extend duration + stack amount
-            this.player.shield += 50;
-            this.player.shield_stacks++;
-            this.time.delayedCall(15000, () => {
-                             this.player.shield_stacks--;
-                             if (this.player.shield_stacks == 0)
-                                 this.player.shield = 0;
-                            });
-        }
-        if (type == "attackspeed")
-        {
-            // stack intensity
-            this.player.attack_speed_bonus *= 0.25;
-            this.time.delayedCall(5000, () => {this.player.attack_speed_bonus *= 4;});
-        }
-
+    getXpForLevel(level) {
+        const n = level - 1;
+        return (n * (n + 1) * (2 * n + 1)) * 2;
     }
 
-    playerTakeDamage(bullet)
-    {
-        let damage = bullet.damage;
-        bullet.destroy(true);
-        if (this.player.shield > 0)
-        {
-            this.player.shield -= damage;
-            damage = 0;
-            if (this.player.shield < 0)
+    spawnTutorialEnemy() {
+        if (this.isChoosingUpgrade || this.tutorialComplete) {
+            return;
+        }
+
+        const margin = 40;
+        const side = Phaser.Math.Between(1, 3);
+        let x = 0;
+        let y = 0;
+        const width = this.map.widthInPixels;
+        const height = this.map.heightInPixels;
+
+        if (side === 0) {
+            x = Phaser.Math.Between(margin, width - margin);
+            y = margin;
+        } else if (side === 1) {
+            x = Phaser.Math.Between(margin, width - margin);
+            y = height - margin;
+        } else if (side === 2) {
+            x = margin;
+            y = Phaser.Math.Between(margin, height - margin);
+        } else {
+            x = width - margin;
+            y = Phaser.Math.Between(margin, height - margin);
+        }
+
+        const enemy = this.enemies.create(x, y, 'mean_block');
+        enemy.setScale(0.65);
+        enemy.setDepth(2);
+        enemy.body.setSize(enemy.width * 0.6, enemy.height * 0.6, true);
+        enemy.setCollideWorldBounds(true);
+        enemy.setData('speed', 80);
+        enemy.setData('hp', 20);
+        enemy.setData('telegraph', 0);
+    }
+
+    tryDash(direction, time) {
+        if (this.player.isDashing) {
+            return;
+        }
+        if (time - this.player.lastDashTime < this.player.dashCooldown) {
+            return;
+        }
+        if (direction.length() === 0) {
+            return;
+        }
+
+        direction = direction.clone().normalize();
+        this.player.lastDashTime = time;
+        this.player.isDashing = true;
+        this.player.invulnerableUntil = time + this.player.dashDuration + 120;
+
+        this.player.setVelocity(direction.x * this.player.dashSpeed, direction.y * this.player.dashSpeed);
+        this.player.setAlpha(0.5);
+
+        this.time.delayedCall(this.player.dashDuration, () => {
+            this.player.isDashing = false;
+            this.player.setVelocity(0, 0);
+            this.player.setAlpha(1);
+        });
+    }
+
+    tryShoot(time) {
+        if (!this.pointer.isDown) {
+            return;
+        }
+        if (time - this.lastShotTime < this.player.fireCooldown) {
+            return;
+        }
+
+        this.lastShotTime = time;
+
+        const worldPoint = this.pointer.positionToCamera(this.cameras.main);
+        const dx = worldPoint.x - this.player.x;
+        const dy = worldPoint.y - this.player.y;
+        const angleDeg = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+
+        const bullet = new Bullet(this, this.player.x, this.player.y, angleDeg, this.player.projectileSpeed, this.player.damage);
+        this.playerBullets.add(bullet);
+    }
+
+    handleEnemyHit(bullet, enemy) {
+        bullet.destroy();
+        const hp = enemy.getData('hp') - this.player.damage;
+        enemy.setData('hp', hp);
+        enemy.setTint(0xff6666);
+        this.time.delayedCall(80, () => {
+            if (enemy.active) {
+                enemy.clearTint();
+            }
+        });
+
+        if (hp <= 0) {
+            this.spawnXpOrb(enemy.x, enemy.y);
+            enemy.destroy();
+            this.enemiesDefeated += 1;
+            this.sound.play('explosion1', { volume: 0.5 });
+        }
+    }
+
+    handlePlayerHit(amount) {
+        const now = this.time.now;
+        if (now < this.player.invulnerableUntil) {
+            return;
+        }
+
+        this.player.hp -= amount;
+        this.player.invulnerableUntil = now + 400;
+        this.cameras.main.shake(120, 0.01);
+        this.player.setTint(0xff0000);
+        this.time.delayedCall(140, () => this.player.clearTint());
+        this.sound.play('hurt1', { volume: 0.6 });
+
+        if (this.player.hp <= 0) {
+            this.endRun(false);
+        }
+    }
+
+    spawnXpOrb(x, y) {
+        const orb = this.xpOrbs.create(x, y, 'coin');
+        orb.setDepth(2.5);
+        orb.setScale(0.6);
+        if (orb.body) {
+            orb.body.setCircle(10, orb.width * 0.3, orb.height * 0.3);
+        }
+        orb.setData('value', 5);
+        this.tweens.add({
+            targets: orb,
+            y: y - 6,
+            duration: 260,
+            yoyo: true,
+            repeat: 2
+        });
+    }
+
+    collectXpOrb(orb) {
+        const value = orb.getData('value') || 5;
+        this.player.xp += value;
+        this.player.totalXp += value;
+        orb.destroy();
+
+        if (this.player.xp >= this.player.nextLevelXp) {
+            this.levelUp();
+        }
+    }
+
+    levelUp() {
+        this.player.level += 1;
+        this.player.xp -= this.player.nextLevelXp;
+        this.player.nextLevelXp = this.getXpForLevel(this.player.level + 1);
+
+        this.cameras.main.flash(200, 80, 160, 255);
+        this.sound.play('level_up_synth', { volume: 0.7 });
+        this.showUpgradeChoices();
+    }
+
+    showUpgradeChoices() {
+        this.isChoosingUpgrade = true;
+        this.physics.world.pause();
+
+        const { width, height } = this.scale;
+
+        const panel = this.add.rectangle(width / 2, height / 2, width * 0.7, height * 0.5, 0x000022, 0.9)
+            .setScrollFactor(0)
+            .setDepth(20);
+
+        const title = this.add.text(width / 2, height * 0.28, 'choose an upgrade', {
+            fontSize: '28px',
+            color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+        const options = [
             {
-                damage = -this.player.shield;
-                this.player.shield = 0;
+                label: 'arcane focus',
+                description: 'increase spell damage and projectile speed',
+                apply: () => {
+                    this.player.damage += 5;
+                    this.player.projectileSpeed += 80;
+                }
+            },
+            {
+                label: 'quick chant',
+                description: 'shorten cast cooldown for faster firing',
+                apply: () => {
+                    this.player.fireCooldown = Math.max(120, this.player.fireCooldown * 0.7);
+                }
+            },
+            {
+                label: 'blinkstep',
+                description: 'reduce dash cooldown and extend dash invulnerability',
+                apply: () => {
+                    this.player.dashCooldown = Math.max(500, this.player.dashCooldown * 0.7);
+                    this.player.dashDuration += 40;
+                }
+            }
+        ];
+
+        const buttons = [];
+        const startY = height * 0.36;
+        const gap = 84;
+
+        options.forEach((opt, index) => {
+            const y = startY + index * gap;
+            const button = this.add.text(width / 2, y, `[ ${opt.label} ]\n${opt.description}`, {
+                fontSize: '20px',
+                color: '#aaddff',
+                align: 'center'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(21).setInteractive({ useHandCursor: true });
+
+            button.on('pointerover', () => {
+                button.setColor('#ffffff');
+            });
+
+            button.on('pointerout', () => {
+                button.setColor('#aaddff');
+            });
+
+            button.on('pointerup', () => {
+                opt.apply();
+                cleanup();
+            });
+
+            buttons.push(button);
+        });
+
+        const cleanup = () => {
+            panel.destroy();
+            title.destroy();
+            buttons.forEach(b => b.destroy());
+            this.isChoosingUpgrade = false;
+            this.physics.world.resume();
+        };
+
+        this.upgradePanel = { panel, title, buttons };
+    }
+
+    update(time, delta) {
+        if (this.tutorialComplete) {
+            return;
+        }
+
+        if (this.isChoosingUpgrade) {
+            this.updateUi(time);
+            return;
+        }
+
+        this.elapsed += delta;
+        this.updateUi(time);
+
+        if (this.elapsed >= this.tutorialDuration) {
+            this.endRun(true);
+            return;
+        }
+
+        const dir = new Phaser.Math.Vector2(0, 0);
+
+        if (this.cursors.left.isDown || this.wasd.left.isDown) {
+            dir.x -= 1;
+        }
+        if (this.cursors.right.isDown || this.wasd.right.isDown) {
+            dir.x += 1;
+        }
+        if (this.cursors.up.isDown || this.wasd.up.isDown) {
+            dir.y -= 1;
+        }
+        if (this.cursors.down.isDown || this.wasd.down.isDown) {
+            dir.y += 1;
+        }
+
+        if (!this.player.isDashing) {
+            if (dir.length() > 0) {
+                dir.normalize();
+                this.player.setVelocity(dir.x * this.player.moveSpeed, dir.y * this.player.moveSpeed);
+            } else {
+                this.player.setVelocity(0, 0);
             }
         }
-        if (damage == 0) return;
-        this.player.hp -= damage; 
-        this.onPlayerDamage(this.player, damage);
-        
-        this.checkEndGame();
+
+        if (Phaser.Input.Keyboard.JustDown(this.dashKey)) {
+            this.tryDash(dir, time);
+        }
+
+        this.tryShoot(time);
+
+        this.enemies.children.iterate(enemy => {
+            if (!enemy || !enemy.active) {
+                return;
+            }
+            this.updateEnemySteering(enemy, time);
+        });
     }
 
-    checkEndGame()
-    {
-        if (this.player.hp <= 0)
-        {
-            this.scene.stop("Start");
+    buildNavGrid() {
+        const width = this.map.width;
+        const height = this.map.height;
+        this.navGrid = [];
+        for (let y = 0; y < height; y++) {
+            const row = [];
+            for (let x = 0; x < width; x++) {
+                const tile = this.obstaclesLayer.getTileAt(x, y);
+                const walkable = !tile || !tile.collides;
+                row.push(walkable ? 0 : 1);
+            }
+            this.navGrid.push(row);
+        }
+    }
+
+    worldToTileCoord(x, y) {
+        const tx = Phaser.Math.Clamp(this.map.worldToTileX(x), 0, this.map.width - 1);
+        const ty = Phaser.Math.Clamp(this.map.worldToTileY(y), 0, this.map.height - 1);
+        return { tx, ty };
+    }
+
+    isWalkableTile(tx, ty) {
+        if (!this.navGrid) return false;
+        if (tx < 0 || ty < 0 || tx >= this.map.width || ty >= this.map.height) return false;
+        return this.navGrid[ty][tx] === 0;
+    }
+
+    findPath(startX, startY, targetX, targetY) {
+        const start = this.worldToTileCoord(startX, startY);
+        const target = this.worldToTileCoord(targetX, targetY);
+
+        if (!this.isWalkableTile(start.tx, start.ty)) {
+            return null;
+        }
+
+        const width = this.map.width;
+        const height = this.map.height;
+        const visited = new Array(height);
+        const prev = new Array(height);
+        for (let y = 0; y < height; y++) {
+            visited[y] = new Array(width).fill(false);
+            prev[y] = new Array(width).fill(null);
+        }
+
+        const queue = [];
+        queue.push({ x: start.tx, y: start.ty });
+        visited[start.ty][start.tx] = true;
+
+        const dirs = [
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 }
+        ];
+
+        let best = { x: start.tx, y: start.ty, d: Math.abs(start.tx - target.tx) + Math.abs(start.ty - target.ty) };
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const distToTarget = Math.abs(current.x - target.tx) + Math.abs(current.y - target.ty);
+            if (distToTarget < best.d) {
+                best = { x: current.x, y: current.y, d: distToTarget };
+            }
+            for (let i = 0; i < dirs.length; i++) {
+                const nx = current.x + dirs[i].x;
+                const ny = current.y + dirs[i].y;
+                if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+                    continue;
+                }
+                if (visited[ny][nx]) {
+                    continue;
+                }
+                if (!this.isWalkableTile(nx, ny)) {
+                    continue;
+                }
+                visited[ny][nx] = true;
+                prev[ny][nx] = current;
+                queue.push({ x: nx, y: ny });
+            }
+        }
+
+        if (best.x === start.tx && best.y === start.ty && best.d > 0) {
+            return null;
+        }
+
+        const pathTiles = [];
+        let current = { x: best.x, y: best.y };
+        while (current) {
+            pathTiles.push(current);
+            const p = prev[current.y][current.x];
+            if (!p) break;
+            current = p;
+        }
+        pathTiles.reverse();
+
+        const pathWorld = pathTiles.map(t => {
+            const wx = this.map.tileToWorldX(t.x) + this.tileWidth / 2;
+            const wy = this.map.tileToWorldY(t.y) + this.tileHeight / 2;
+            return { x: wx, y: wy };
+        });
+
+        return pathWorld;
+    }
+
+    hasLineOfSight(sx, sy, tx, ty) {
+        const dx = tx - sx;
+        const dy = ty - sy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist === 0) return true;
+        const steps = Math.ceil(dist / (this.tileWidth / 2));
+        for (let i = 1; i < steps; i++) {
+            const t = i / steps;
+            const x = sx + dx * t;
+            const y = sy + dy * t;
+            const tile = this.obstaclesLayer.getTileAtWorldXY(x, y, true);
+            if (tile && tile.collides) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    updateEnemySteering(enemy, time) {
+        const speed = enemy.getData('speed') || 80;
+
+        if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
+            const direct = new Phaser.Math.Vector2(this.player.x - enemy.x, this.player.y - enemy.y);
+            if (direct.lengthSq() < 4 * 4) {
+                enemy.setVelocity(0, 0);
+                return;
+            }
+            direct.normalize().scale(speed);
+            enemy.setVelocity(direct.x, direct.y);
+            enemy.navPath = null;
+            return;
+        }
+
+        const enemyTile = this.worldToTileCoord(enemy.x, enemy.y);
+        const playerTile = this.worldToTileCoord(this.player.x, this.player.y);
+
+        const targetChanged =
+            enemy.lastTargetTileX !== playerTile.tx || enemy.lastTargetTileY !== playerTile.ty;
+        const needsPath =
+            !enemy.navPath ||
+            enemy.navPathIndex === undefined ||
+            enemy.navPathIndex >= enemy.navPath.length ||
+            targetChanged ||
+            (enemy.lastPathTime !== undefined && time - enemy.lastPathTime > 800);
+
+        if (needsPath) {
+            const path = this.findPath(enemy.x, enemy.y, this.player.x, this.player.y);
+            if (!path || path.length < 2) {
+                enemy.setVelocity(0, 0);
+                enemy.navPath = null;
+                return;
+            }
+            enemy.navPath = path;
+            enemy.navPathIndex = 1;
+            enemy.lastPathTime = time;
+            enemy.lastTargetTileX = playerTile.tx;
+            enemy.lastTargetTileY = playerTile.ty;
+        }
+
+        const path = enemy.navPath;
+        if (!path || enemy.navPathIndex >= path.length) {
+            enemy.setVelocity(0, 0);
+            return;
+        }
+
+        const target = path[enemy.navPathIndex];
+        const toTarget = new Phaser.Math.Vector2(target.x - enemy.x, target.y - enemy.y);
+        const distSq = toTarget.lengthSq();
+
+        if (distSq < 8 * 8) {
+            enemy.navPathIndex++;
+            if (enemy.navPathIndex >= path.length) {
+                enemy.setVelocity(0, 0);
+                return;
+            }
+        }
+
+        const dir = new Phaser.Math.Vector2(
+            path[enemy.navPathIndex].x - enemy.x,
+            path[enemy.navPathIndex].y - enemy.y
+        );
+        if (dir.lengthSq() === 0) {
+            enemy.setVelocity(0, 0);
+            return;
+        }
+        dir.normalize().scale(speed);
+        enemy.setVelocity(dir.x, dir.y);
+    }
+
+    updateUi(time) {
+        const { width, height } = this.scale;
+        this.uiGraphics.clear();
+
+        const hpRatio = Phaser.Math.Clamp(this.player.hp / this.player.maxHp, 0, 1);
+        const hpWidth = 220;
+        const hpHeight = 16;
+
+        this.uiGraphics.fillStyle(0x330000, 0.9);
+        this.uiGraphics.fillRect(18, 18, hpWidth, hpHeight);
+        this.uiGraphics.fillStyle(0xff4444, 1);
+        this.uiGraphics.fillRect(18, 18, hpWidth * hpRatio, hpHeight);
+
+        const dashWidth = 140;
+        const dashHeight = 8;
+        const dashX = 18;
+        const dashY = 40;
+        const dashReadyIn = Math.max(0, (this.player.lastDashTime + this.player.dashCooldown) - time);
+        const dashRatio = 1 - Phaser.Math.Clamp(dashReadyIn / this.player.dashCooldown, 0, 1);
+
+        this.uiGraphics.fillStyle(0x222233, 0.9);
+        this.uiGraphics.fillRect(dashX, dashY, dashWidth, dashHeight);
+        this.uiGraphics.fillStyle(dashRatio >= 1 ? 0x88ffcc : 0x44aa88, 1);
+        this.uiGraphics.fillRect(dashX, dashY, dashWidth * dashRatio, dashHeight);
+
+        const xpRatio = Phaser.Math.Clamp(this.player.xp / this.player.nextLevelXp, 0, 1);
+        const xpWidth = width * 0.6;
+        const xpHeight = 12;
+        const xpX = (width - xpWidth) / 2;
+        const xpY = height - 24;
+
+        this.uiGraphics.fillStyle(0x001133, 0.9);
+        this.uiGraphics.fillRect(xpX, xpY, xpWidth, xpHeight);
+        this.uiGraphics.fillStyle(0x66aaff, 1);
+        this.uiGraphics.fillRect(xpX, xpY, xpWidth * xpRatio, xpHeight);
+
+        this.healthText.setText(`hp: ${Math.max(0, Math.round(this.player.hp))}/${this.player.maxHp}`);
+        this.levelText.setText(`level ${this.player.level}  xp ${this.player.xp.toFixed(0)} / ${this.player.nextLevelXp.toFixed(0)}`);
+
+        const remainingMs = Math.max(0, this.tutorialDuration - this.elapsed);
+        const remaining = remainingMs / 1000;
+        this.timerText.setText(`tutorial time left: ${remaining.toFixed(1)}s`);
+    }
+
+    endRun(completed) {
+        if (this.tutorialComplete) {
+            return;
+        }
+        this.tutorialComplete = true;
+
+        const stats = {
+            timeSurvived: this.elapsed / 1000,
+            enemiesDefeated: this.enemiesDefeated,
+            maxLevel: this.player.level
+        };
+
+        this.registry.set('finalStats', stats);
+
+        if (completed) {
+            this.scene.start('Victory', stats);
+        } else {
             this.scene.start('GameOver');
         }
     }
-
-    threshold(level)
-    {
-        let n = level;
-        // sum of first n squares
-        // level 2 at 1^2*10 = 10
-        // level 3 at (1^2 + 2^2)*10 = 50
-        // level 4 at (1^2 + 2^2 + 3^2)*10 = 140
-        // etc. (delta between two levels is level*level*10)
-        return (n*(n+1)*(2*n+1)/6)*10;
-    }
-
-
-    checkLevelUp()
-    {
-        let n = this.player.level
-        if (this.player.score >= this.threshold(this.player.level))
-        {
-            this.player.level++;
-            this.onPlayerLevelUp(this.player, this.player.level);
-            this.player.attack_speed *= 0.85;
-            this.player.speed += 15;
-            this.player.bullet_speed += 20;
-        }
-    }
-
-
-    onPlayerDamage(player, damage)
-    {
-        // you can change this completely
-        player.tint = 0xff0000;
-        this.time.delayedCall(500, () => { player.tint = 0xffffff; }); 
-    }
-
-    onEnemyDestroy(enemy)
-    {
-        enemy.dot.destroy(true);
-		enemy.destroy(true);
-    }
-
-    onPlayerLevelUp(player, level)
-    {
-        
-    }
-    
 }
+
+

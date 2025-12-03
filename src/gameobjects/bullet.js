@@ -1,11 +1,15 @@
 export class Bullet extends Phaser.GameObjects.Sprite {
     constructor(scene, x, y, direction, speed, damage){
-         super(scene, x, y, "projectile");
+         super(scene, x, y, "dot");
          scene.add.existing(this);
          scene.physics.add.existing(this);
+         this.body.setAllowGravity(false);
+         this.setScale(0.5);
+         if (this.body && this.body.setCircle) {
+             this.body.setCircle(2, 2, 2);
+         }
          this.direction = Phaser.Math.DegToRad(direction);
          this.setDepth(4);
-         this.setScale(0.6);
          this.scene = scene;
          this.last_time = this.scene.time.now;
          this.speed = speed;

@@ -1,18 +1,25 @@
-import { Start } from './scenes/Start.js';
-import { GameOver } from './scenes/GameOver.js';
+import { PreloadScene } from './scenes/Preload.js';
+import { MenuScene } from './scenes/Menu.js';
+import { GameScene } from './scenes/Start.js';
+import { GameOverScene } from './scenes/GameOver.js';
+import { VictoryScene } from './scenes/Victory.js';
 
 const config = {
     type: Phaser.AUTO,
-    title: 'Overlord Rising',
-    description: '',
+    title: 'Arcane Overload',
+    description: 'top-down survival action game',
     parent: 'game-container',
-    width: 1280,
-    height: 720,
+    width: 960,
+    height: 960,
     backgroundColor: '#000000',
     pixelArt: true,
-    physics: {default: "arcade"},
+    physics: { default: "arcade", arcade: { debug: false } },
     scene: [
-        Start, GameOver
+        PreloadScene,
+        MenuScene,
+        GameScene,
+        GameOverScene,
+        VictoryScene
     ],
     scale: {
         mode: Phaser.Scale.FIT,
@@ -21,4 +28,3 @@ const config = {
 }
 
 new Phaser.Game(config);
-            
