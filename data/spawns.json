@@ -1,0 +1,24 @@
+[
+   {
+    "sprite": "bee",
+    "name": "BEEEEES?",
+    "description": "Death comes with wings.",
+    "count": 5,
+    "speed": 100,
+    "attack_rate": 3000,
+    "bullet_speed": 800,
+    "damage": 3,
+    "target": ["player"]
+},
+    {
+    "sprite": "barnacle",
+    "name": "Scare-nacle",
+    "description": "Are you scared yet?",
+    "count": 10,
+    "speed": 300,
+    "attack_rate": 5000,
+    "bullet_speed": 500,
+    "damage": 5,
+    "target": ["random", "player"]
+}
+]
