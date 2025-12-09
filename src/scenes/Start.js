@@ -119,8 +119,8 @@ export class GameScene extends Phaser.Scene {
         // timer and stats
         this.elapsed = 0;
         this.enemiesDefeated = 0;
-        // slightly shortermore intense final arena
-        this.tutorialDuration = (this.arenaType === 'final') ? 75 * 1000 : 90 * 1000;
+        // tutorial uses a visible time limit; final arena uses time only for internal pacing
+        this.tutorialDuration = 90 * 1000;
         this.tutorialComplete = false;
 
         // wave/elite state
@@ -211,12 +211,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     spawnTutorialEnemy() {
-        // don't spawn during upgrade screen, after tutorial, or once the elite wave has started
-        if (this.isChoosingUpgrade || this.tutorialComplete || this.eliteSpawned) {
+        // don't spawn during upgrade screen or after tutorial
+        if (this.isChoosingUpgrade || this.tutorialComplete) {
             return;
         }
 
-        // decide what kind of enemy to spawn based on time & wave phase
+        // tutorial arena: always spawn basic enemies (no waves)
+        if (this.arenaType !== 'final') {
+            this.spawnEnemyOfType('basic');
+            return;
+        }
+
+        // final arena: vary enemy type based on wave phase
         // wave 1 - mostly basic. wave 2 - some tanks. wave 3 - more tanks!
         let enemyType = 'basic';
         if (this.wavePhase === 2) {
@@ -229,30 +235,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     spawnEnemyOfType(enemyType) {
-        const margin = 40;
-        const width = this.map.widthInPixels;
-        const height = this.map.heightInPixels;
-
-        const side = Phaser.Math.Between(0, 3);
-        let x = 0;
-        let y = 0;
-
-        if (side === 0) {
-            x = Phaser.Math.Between(margin, width - margin);
-            y = margin;
-        } else if (side === 1) {
-            x = Phaser.Math.Between(margin, width - margin);
-            y = height - margin;
-        } else if (side === 2) {
-            x = margin;
-            y = Phaser.Math.Between(margin, height - margin);
-        } else {
-            x = width - margin;
-            y = Phaser.Math.Between(margin, height - margin);
-        }
-
-        // use same sprite for now. differentiate thru stats & scale
-        const enemy = this.enemies.create(x, y, 'mean_block');
+        // create enemy at a temporary position; we'll move it once we find a safe spawn point
+        const enemy = this.enemies.create(0, 0, 'mean_block');
 
         let speed = 80;
         let hp = 20;
@@ -277,11 +261,104 @@ export class GameScene extends Phaser.Scene {
         enemy.setData('speed', speed);
         enemy.setData('hp', hp);
 
+        // make elites visually stand out
+        if (enemyType === 'elite') {
+            enemy.setTint(0xff8888);
+        }
+
         // extra data for tank charge behaviour (used later in updateEnemySteering)
         enemy.setData('chargeState', 'idle');
         enemy.setData('lastChargeTime', 0);
 
+        // find a spawn position that does not overlap any colliding tiles
+        const spawnPoint = this.findSafeSpawnPointForEnemy(enemy);
+        if (!spawnPoint) {
+            // if we can't find a safe place, don't spawn this enemy at all
+            enemy.destroy();
+            return null;
+        }
+
+        enemy.setPosition(spawnPoint.x, spawnPoint.y);
         return enemy;
+    }
+
+    findSafeSpawnPointForEnemy(enemy) {
+        const margin = 40;
+        const width = this.map.widthInPixels;
+        const height = this.map.heightInPixels;
+
+        const body = enemy.body;
+        const halfW = (body?.width || enemy.width) / 2;
+        const halfH = (body?.height || enemy.height) / 2;
+
+        const maxAttempts = 40;
+
+        for (let i = 0; i < maxAttempts; i++) {
+            const side = Phaser.Math.Between(0, 3); // 0=top, 1=bottom, 2=left, 3=right
+            let x = 0;
+            let y = 0;
+
+            if (side === 0) {
+                // top edge
+                x = Phaser.Math.Between(margin + halfW, width - margin - halfW);
+                y = margin + halfH;
+            } else if (side === 1) {
+                // bottom edge
+                x = Phaser.Math.Between(margin + halfW, width - margin - halfW);
+                y = height - margin - halfH;
+            } else if (side === 2) {
+                // left edge
+                x = margin + halfW;
+                y = Phaser.Math.Between(margin + halfH, height - margin - halfH);
+            } else {
+                // right edge
+                x = width - margin - halfW;
+                y = Phaser.Math.Between(margin + halfH, height - margin - halfH);
+            }
+
+            if (this.isSpawnRectFreeFromObstacles(x, y, halfW, halfH)) {
+                return { x, y };
+            }
+        }
+
+        return null;
+    }
+
+    isSpawnRectFreeFromObstacles(cx, cy, halfW, halfH) {
+        // ensure the enemy's body stays fully inside the map bounds
+        const width = this.map.widthInPixels;
+        const height = this.map.heightInPixels;
+        if (
+            cx - halfW < 0 ||
+            cy - halfH < 0 ||
+            cx + halfW > width ||
+            cy + halfH > height
+        ) {
+            return false;
+        }
+
+        // sample multiple points across the enemy's bounding box
+        const samplePoints = [
+            { x: cx, y: cy }, // center
+            { x: cx - halfW, y: cy - halfH }, // corners
+            { x: cx + halfW, y: cy - halfH },
+            { x: cx - halfW, y: cy + halfH },
+            { x: cx + halfW, y: cy + halfH },
+            { x: cx, y: cy - halfH }, // edge midpoints
+            { x: cx, y: cy + halfH },
+            { x: cx - halfW, y: cy },
+            { x: cx + halfW, y: cy }
+        ];
+
+        for (let i = 0; i < samplePoints.length; i++) {
+            const p = samplePoints[i];
+            const tile = this.obstaclesLayer.getTileAtWorldXY(p.x, p.y, true);
+            if (tile && tile.collides) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     startEliteWave() {
@@ -305,27 +382,29 @@ export class GameScene extends Phaser.Scene {
 
         this.sound.play('level_up_synth', { volume: 0.9 });
 
-        // change arena shape
-        this.createFinalArenaRing();
+        // change arena shape: first ring, then a second tighter ring a few seconds later
+        this.createFinalArenaRing(72);
+        this.time.delayedCall(6000, () => {
+            if (!this.tutorialComplete) {
+                this.createFinalArenaRing(120);
+            }
+        });
 
-        // spawn the elite
-        const elite = this.spawnEnemyOfType('elite');
-        if (elite) {
-            elite.setData('type', 'elite');
+        // spawn multiple elites plus basic adds to keep pressure up
+        const eliteCount = 2;
+        for (let i = 0; i < eliteCount; i++) {
+            this.spawnEnemyOfType('elite');
         }
-
-        // basic adds to keep pressure up during elite fight
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 4; i++) {
             this.spawnEnemyOfType('basic');
         }
     }
 
-    createFinalArenaRing() {
-        // simple ring of invisible colliders near edges of the arena
+    createFinalArenaRing(ringMargin = 72) {
+        // ring of invisible colliders near edges of the arena
         const width = this.map.widthInPixels;
         const height = this.map.heightInPixels;
 
-        const ringMargin = 72;
         const step = this.tileWidth;
 
         const positions = [];
@@ -564,30 +643,38 @@ export class GameScene extends Phaser.Scene {
         this.elapsed += delta;
         this.updateUi(time);
 
-        // wave progression based on elapsed time
-        if (!this.eliteSpawned) {
-            if (this.elapsed > 75000) {           // last 15 secs --> elite wave
-                this.startEliteWave();
-            } else if (this.elapsed > 55000) {    // phase 3
-                this.wavePhase = 3;
-            } else if (this.elapsed > 25000) {    // phase 2
-                this.wavePhase = 2;
-            } else {
-                this.wavePhase = 1;
+        // wave / elite logic only applies in the final arena
+        if (this.arenaType === 'final') {
+            // In the final arena, time is used only to pace waves and trigger the elite,
+            // not to auto-end the run. Phases:
+            //  - 0–25s   : phase 1 (basic only)
+            //  - 25–45s  : phase 2 (some tanks)
+            //  - 45–60s  : phase 3 (more tanks)
+            //  - 60s+    : elite wave
+            if (!this.eliteSpawned) {
+                if (this.elapsed > 60000) {
+                    this.startEliteWave();
+                } else if (this.elapsed > 45000) {    // phase 3
+                    this.wavePhase = 3;
+                } else if (this.elapsed > 25000) {    // phase 2
+                    this.wavePhase = 2;
+                } else {
+                    this.wavePhase = 1;
+                }
+            }
+
+            // if elite is up + all enemies are gone, end early with win
+            if (this.eliteSpawned && !this.eliteDefeated) {
+                if (this.enemies.countActive(true) === 0) {
+                    this.eliteDefeated = true;
+                    this.endRun(true);
+                    return;
+                }
             }
         }
 
-        // if elite is up + all enemies are gone, end early with win
-        if (this.eliteSpawned && !this.eliteDefeated) {
-            if (this.enemies.countActive(true) === 0) {
-                this.eliteDefeated = true;
-                this.endRun(true);
-                return;
-            }
-        }
-
-        // original tutorial end condition: survive full duration
-        if (this.elapsed >= this.tutorialDuration) {
+        // tutorial end condition: survive for the arena's duration
+        if (this.arenaType === 'tutorial' && this.elapsed >= this.tutorialDuration) {
             this.endRun(true);
             return;
         }
@@ -919,9 +1006,14 @@ export class GameScene extends Phaser.Scene {
         this.healthText.setText(`hp: ${Math.max(0, Math.round(this.player.hp))}/${this.player.maxHp}`);
         this.levelText.setText(`level ${this.player.level}  xp ${this.player.xp.toFixed(0)} / ${this.player.nextLevelXp.toFixed(0)}`);
 
-        const remainingMs = Math.max(0, this.tutorialDuration - this.elapsed);
-        const remaining = remainingMs / 1000;
-        this.timerText.setText(`tutorial time left: ${remaining.toFixed(1)}s`);
+        // Tutorial shows a visible countdown; final arena hides its internal timer.
+        if (this.arenaType === 'tutorial') {
+            const remainingMs = Math.max(0, this.tutorialDuration - this.elapsed);
+            const remaining = remainingMs / 1000;
+            this.timerText.setText(`tutorial time left: ${remaining.toFixed(1)}s`);
+        } else {
+            this.timerText.setText('');
+        }
     }
 
     endRun(completed) {
