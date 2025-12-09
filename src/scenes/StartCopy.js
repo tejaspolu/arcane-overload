@@ -11,10 +11,8 @@ export class GameScene extends Phaser.Scene {
 
     create() {
         // layout: simple single-screen tutorial arena using the tilemap
-        const mapKey = (this.arenaType === 'final') ? 'tilemap_final' : 'tilemap';
-        this.map = this.make.tilemap({ key: mapKey });
+        this.map = this.make.tilemap({ key: 'tilemap' });
         const tileset = this.map.addTilesetImage('landscape', 'landscape');
-
         this.map.createLayer('background', tileset, 0, 0).setDepth(0);
         const obstacles = this.map.createLayer('obstacles', tileset, 0, 0);
         obstacles.setCollisionByExclusion([-1]);
@@ -85,11 +83,6 @@ export class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.waterColliders);
         this.physics.add.collider(this.enemies, this.waterColliders);
 
-        // extra colliders for final arena obstacles
-        this.finalRingGroup = this.physics.add.staticGroup();
-        this.physics.add.collider(this.player, this.finalRingGroup);
-        this.physics.add.collider(this.enemies, this.finalRingGroup);
-
         this.physics.add.overlap(this.playerBullets, this.enemies, (bullet, enemy) => {
             this.handleEnemyHit(bullet, enemy);
         });
@@ -119,14 +112,8 @@ export class GameScene extends Phaser.Scene {
         // timer and stats
         this.elapsed = 0;
         this.enemiesDefeated = 0;
-        // slightly shortermore intense final arena
-        this.tutorialDuration = (this.arenaType === 'final') ? 75 * 1000 : 90 * 1000;
+        this.tutorialDuration = 90 * 1000;
         this.tutorialComplete = false;
-
-        // wave/elite state
-        this.wavePhase = 1;
-        this.eliteSpawned = false;
-        this.eliteDefeated = false;
 
         // shooting
         this.lastShotTime = 0;
@@ -139,15 +126,11 @@ export class GameScene extends Phaser.Scene {
         this.buildUi();
 
         // onboarding text
-        if (this.arenaType === 'tutorial') {
-            this.buildTutorialHints();
-        }
+        this.buildTutorialHints();
 
         // gentle spawning for tutorial arena
-        const spawnDelay = (this.arenaType === 'final') ? 800 : 1200;
-
         this.spawnTimer = this.time.addEvent({
-            delay: spawnDelay,
+            delay: 1200,
             loop: true,
             callback: () => this.spawnTutorialEnemy()
         });
@@ -211,31 +194,16 @@ export class GameScene extends Phaser.Scene {
     }
 
     spawnTutorialEnemy() {
-        // don't spawn during upgrade screen, after tutorial, or once the elite wave has started
-        if (this.isChoosingUpgrade || this.tutorialComplete || this.eliteSpawned) {
+        if (this.isChoosingUpgrade || this.tutorialComplete) {
             return;
         }
 
-        // decide what kind of enemy to spawn based on time & wave phase
-        // wave 1 - mostly basic. wave 2 - some tanks. wave 3 - more tanks!
-        let enemyType = 'basic';
-        if (this.wavePhase === 2) {
-            enemyType = Math.random() < 0.25 ? 'tank' : 'basic';
-        } else if (this.wavePhase === 3) {
-            enemyType = Math.random() < 0.45 ? 'tank' : 'basic';
-        }
-
-        this.spawnEnemyOfType(enemyType);
-    }
-
-    spawnEnemyOfType(enemyType) {
         const margin = 40;
-        const width = this.map.widthInPixels;
-        const height = this.map.heightInPixels;
-
-        const side = Phaser.Math.Between(0, 3);
+        const side = Phaser.Math.Between(1, 3);
         let x = 0;
         let y = 0;
+        const width = this.map.widthInPixels;
+        const height = this.map.heightInPixels;
 
         if (side === 0) {
             x = Phaser.Math.Between(margin, width - margin);
@@ -251,105 +219,15 @@ export class GameScene extends Phaser.Scene {
             y = Phaser.Math.Between(margin, height - margin);
         }
 
-        // use same sprite for now. differentiate thru stats & scale
         const enemy = this.enemies.create(x, y, 'mean_block');
-
-        let speed = 80;
-        let hp = 20;
-        let scale = 0.65;
-
-        if (enemyType === 'tank') {
-            speed = 50;   // slower
-            hp = 80;      // tougher
-            scale = 0.8;  // larger
-        } else if (enemyType === 'elite') {
-            speed = 65;
-            hp = 180;
-            scale = 1.1;
-        }
-
-        enemy.setScale(scale);
+        enemy.setScale(0.65);
         enemy.setDepth(2);
-        enemy.setCollideWorldBounds(true);
         enemy.body.setSize(enemy.width * 0.6, enemy.height * 0.6, true);
-
-        enemy.setData('type', enemyType);
-        enemy.setData('speed', speed);
-        enemy.setData('hp', hp);
-
-        // extra data for tank charge behaviour (used later in updateEnemySteering)
-        enemy.setData('chargeState', 'idle');
-        enemy.setData('lastChargeTime', 0);
-
-        return enemy;
+        enemy.setCollideWorldBounds(true);
+        enemy.setData('speed', 80);
+        enemy.setData('hp', 20);
+        enemy.setData('telegraph', 0);
     }
-
-    startEliteWave() {
-        if (this.eliteSpawned) {
-            return;
-        }
-
-        this.eliteSpawned = true;
-
-        // stop regular spawn timer
-        if (this.spawnTimer) {
-            this.spawnTimer.remove(false);
-            this.spawnTimer = null;
-        }
-
-        // dramatic slow motion when elite appears
-        this.time.timeScale = 0.2;
-        this.time.delayedCall(200, () => {
-            this.time.timeScale = 1;
-        });
-
-        this.sound.play('level_up_synth', { volume: 0.9 });
-
-        // change arena shape
-        this.createFinalArenaRing();
-
-        // spawn the elite
-        const elite = this.spawnEnemyOfType('elite');
-        if (elite) {
-            elite.setData('type', 'elite');
-        }
-
-        // basic adds to keep pressure up during elite fight
-        for (let i = 0; i < 3; i++) {
-            this.spawnEnemyOfType('basic');
-        }
-    }
-
-    createFinalArenaRing() {
-        // simple ring of invisible colliders near edges of the arena
-        const width = this.map.widthInPixels;
-        const height = this.map.heightInPixels;
-
-        const ringMargin = 72;
-        const step = this.tileWidth;
-
-        const positions = [];
-
-        // top & bottom
-        for (let x = ringMargin; x <= width - ringMargin; x += step) {
-            positions.push({ x, y: ringMargin });
-            positions.push({ x, y: height - ringMargin });
-        }
-
-        // left & right. skip corners we already added
-        for (let y = ringMargin + step; y <= height - ringMargin - step; y += step) {
-            positions.push({ x: ringMargin, y });
-            positions.push({ x: width - ringMargin, y });
-        }
-
-        positions.forEach(pos => {
-            const block = this.physics.add.staticImage(pos.x, pos.y);
-            block.setVisible(false);
-            block.body.setSize(this.tileWidth * 0.7, this.tileHeight * 0.7, true);
-            this.finalRingGroup.add(block);
-        });
-    }
-
 
     tryDash(direction, time) {
         if (this.player.isDashing) {
@@ -564,29 +442,6 @@ export class GameScene extends Phaser.Scene {
         this.elapsed += delta;
         this.updateUi(time);
 
-        // wave progression based on elapsed time
-        if (!this.eliteSpawned) {
-            if (this.elapsed > 75000) {           // last 15 secs --> elite wave
-                this.startEliteWave();
-            } else if (this.elapsed > 55000) {    // phase 3
-                this.wavePhase = 3;
-            } else if (this.elapsed > 25000) {    // phase 2
-                this.wavePhase = 2;
-            } else {
-                this.wavePhase = 1;
-            }
-        }
-
-        // if elite is up + all enemies are gone, end early with win
-        if (this.eliteSpawned && !this.eliteDefeated) {
-            if (this.enemies.countActive(true) === 0) {
-                this.eliteDefeated = true;
-                this.endRun(true);
-                return;
-            }
-        }
-
-        // original tutorial end condition: survive full duration
         if (this.elapsed >= this.tutorialDuration) {
             this.endRun(true);
             return;
@@ -629,7 +484,6 @@ export class GameScene extends Phaser.Scene {
             this.updateEnemySteering(enemy, time);
         });
     }
-
 
     buildNavGrid() {
         const width = this.map.width;
@@ -755,61 +609,6 @@ export class GameScene extends Phaser.Scene {
 
     updateEnemySteering(enemy, time) {
         const speed = enemy.getData('speed') || 80;
-        const type = enemy.getData('type') || 'basic';
-
-        // special behaviour for tanks - short yellow telegraph then brief charge
-        if (type === 'tank') {
-            const dx = this.player.x - enemy.x;
-            const dy = this.player.y - enemy.y;
-            const distSq = dx * dx + dy * dy;
-
-            const chargeState = enemy.getData('chargeState') || 'idle';
-            const lastChargeTime = enemy.getData('lastChargeTime') || 0;
-            const telegraphUntil = enemy.getData('telegraphUntil') || 0;
-            const chargeUntil = enemy.getData('chargeUntil') || 0;
-            const cooldown = 2200; // in ms
-
-            if (chargeState === 'idle') {
-                // close enough and off cooldown --> start telegraph
-                if (distSq < 200 * 200 && time - lastChargeTime > cooldown) {
-                    enemy.setData('chargeState', 'telegraph');
-                    enemy.setData('telegraphUntil', time + 280);
-                    enemy.setVelocity(0, 0);
-                    enemy.setTint(0xffff66); // yellow flash
-                    enemy.setData('chargeDirX', dx);
-                    enemy.setData('chargeDirY', dy);
-                    return;
-                }
-            } else if (chargeState === 'telegraph') {
-                if (time >= telegraphUntil) {
-                    const dir = new Phaser.Math.Vector2(
-                        enemy.getData('chargeDirX') || dx,
-                        enemy.getData('chargeDirY') || dy
-                    );
-                    if (dir.lengthSq() === 0) {
-                        enemy.setData('chargeState', 'idle');
-                        enemy.clearTint();
-                        return;
-                    }
-                    dir.normalize().scale(speed * 2.2);
-                    enemy.setVelocity(dir.x, dir.y);
-                    enemy.setData('chargeState', 'charging');
-                    enemy.setData('chargeUntil', time + 260);
-                    enemy.setData('lastChargeTime', time);
-                    enemy.clearTint();
-                }
-                return;
-            } else if (chargeState === 'charging') {
-                if (time >= chargeUntil) {
-                    enemy.setData('chargeState', 'idle');
-                    enemy.setVelocity(0, 0);
-                }
-                return;
-            }
-            // when not in a special state, fall through to normal steering below
-        }
-
-        // *** original pathfinding behaviour ***
 
         if (this.hasLineOfSight(enemy.x, enemy.y, this.player.x, this.player.y)) {
             const direct = new Phaser.Math.Vector2(this.player.x - enemy.x, this.player.y - enemy.y);
@@ -857,9 +656,9 @@ export class GameScene extends Phaser.Scene {
 
         const target = path[enemy.navPathIndex];
         const toTarget = new Phaser.Math.Vector2(target.x - enemy.x, target.y - enemy.y);
-        const distSq2 = toTarget.lengthSq();
+        const distSq = toTarget.lengthSq();
 
-        if (distSq2 < 8 * 8) {
+        if (distSq < 8 * 8) {
             enemy.navPathIndex++;
             if (enemy.navPathIndex >= path.length) {
                 enemy.setVelocity(0, 0);
@@ -878,7 +677,6 @@ export class GameScene extends Phaser.Scene {
         dir.normalize().scale(speed);
         enemy.setVelocity(dir.x, dir.y);
     }
-
 
     updateUi(time) {
         const { width, height } = this.scale;

@@ -30,6 +30,7 @@ export class PreloadScene extends Phaser.Scene {
         this.load.image('yellow_worm', 'assets/yellow_worm.png');
         this.load.image('landscape', 'assets/tilesheet.png');
         this.load.tilemapTiledJSON('tilemap', 'assets/tilemap.tmj');
+        this.load.tilemapTiledJSON('tilemap_final', 'assets/tilemap_final.tmj');
 
         this.load.image('dot', 'assets/dot.png');
         this.load.image('coin', 'assets/coin.png');
