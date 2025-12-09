@@ -11,8 +11,10 @@ export class GameScene extends Phaser.Scene {
 
     create() {
         // layout: simple single-screen tutorial arena using the tilemap
-        this.map = this.make.tilemap({ key: 'tilemap' });
+        const mapKey = (this.arenaType === 'final') ? 'tilemap_final' : 'tilemap';
+        this.map = this.make.tilemap({ key: mapKey });
         const tileset = this.map.addTilesetImage('landscape', 'landscape');
+
         this.map.createLayer('background', tileset, 0, 0).setDepth(0);
         const obstacles = this.map.createLayer('obstacles', tileset, 0, 0);
         obstacles.setCollisionByExclusion([-1]);
@@ -117,7 +119,8 @@ export class GameScene extends Phaser.Scene {
         // timer and stats
         this.elapsed = 0;
         this.enemiesDefeated = 0;
-        this.tutorialDuration = 90 * 1000;
+        // slightly shortermore intense final arena
+        this.tutorialDuration = (this.arenaType === 'final') ? 75 * 1000 : 90 * 1000;
         this.tutorialComplete = false;
 
         // wave/elite state
@@ -136,11 +139,15 @@ export class GameScene extends Phaser.Scene {
         this.buildUi();
 
         // onboarding text
-        this.buildTutorialHints();
+        if (this.arenaType === 'tutorial') {
+            this.buildTutorialHints();
+        }
 
         // gentle spawning for tutorial arena
+        const spawnDelay = (this.arenaType === 'final') ? 800 : 1200;
+
         this.spawnTimer = this.time.addEvent({
-            delay: 1200,
+            delay: spawnDelay,
             loop: true,
             callback: () => this.spawnTutorialEnemy()
         });

@@ -13,14 +13,21 @@ export class MenuScene extends Phaser.Scene {
             color: '#ffffff'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, height * 0.32, 'tutorial arena: learn to move, aim, and level up', {
+        this.add.text(width / 2, height * 0.32, 'choose an arena mode', {
             fontSize: '24px',
             color: '#ccccff'
         }).setOrigin(0.5);
 
+        // tutorial arena button
         const tutorialButton = this.add.text(width / 2, height * 0.5, '[ start tutorial arena ]', {
             fontSize: '32px',
             color: '#aaffaa'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        // final arena button
+        const finalButton = this.add.text(width / 2, height * 0.6, '[ start final arena ]', {
+            fontSize: '32px',
+            color: '#ffaaaa'
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
         const instructions = [
@@ -38,6 +45,11 @@ export class MenuScene extends Phaser.Scene {
 
         tutorialButton.on('pointerup', () => {
             this.scene.start('Game', { arena: 'tutorial' });
+        });
+
+        // start GameScene in final mode
+        finalButton.on('pointerup', () => {
+            this.scene.start('Game', { arena: 'final' });
         });
     }
 }
